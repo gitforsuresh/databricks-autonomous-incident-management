@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 import json
 import requests
 import importlib
@@ -81,3 +85,7 @@ if __name__ == "__main__":
     failed_run_ids, success_run_ids = list_jobs(CONFIG)
     task_failed_run_id = get_failed_parent_run(CONFIG)
     error_details = get_error_message(CONFIG)
+    print(failed_run_ids)
+    print(success_run_ids)
+    print(task_failed_run_id)
+    print(error_details)
