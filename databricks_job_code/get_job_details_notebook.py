@@ -9,8 +9,20 @@ import importlib
 import config_files.config_files
 importlib.reload(config_files.config_files)
 from config_files.config_files import CONFIG
-print(CONFIG)
+from pyspark.sql import Row
+from pyspark.sql import functions as F
 
+
+# COMMAND ----------
+
+def job_details(config):
+    try:
+        job_api = config["databricks_job_details"]["job_details_api"]
+        data = requests.get(job_api, headers = {"Authorization": "Bearer " + dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()})
+        json_output = data.json()
+        return json_output
+    except Exception as e:
+        print(e)
 
 # COMMAND ----------
 
@@ -53,6 +65,8 @@ def get_failed_parent_run(config):
 
 # COMMAND ----------
 
+
+
 def get_error_message(config):
     try:
         task_run_id = get_failed_parent_run(config)
@@ -71,7 +85,12 @@ def get_error_message(config):
             "notebook_path": error_output["metadata"]["tasks"][0]["notebook_task"]["notebook_path"]
             }
             error_details.append(error_info)
-        return error_details
+        if error_details:
+            error_df = spark.createDataFrame([Row(**error) for error in error_details])
+            error_df = error_df.withColumn("ingested_at", F.current_timestamp()).withColumn("_ingest_date", F.current_date())
+            # error_df.write.mode("append").saveAsTable("job_error_details")
+        return error_df
+
     except Exception as e:
         print(e)
 
@@ -89,3 +108,15 @@ if __name__ == "__main__":
     print(success_run_ids)
     print(task_failed_run_id)
     print(error_details)
+
+# COMMAND ----------
+
+error_details = get_error_message(CONFIG)
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+error_details.display()
