@@ -8,12 +8,15 @@ from langchain_databricks import ChatDatabricks
 
 # COMMAND ----------
 
-def get_weather(city:str)->str:
-    """
-    This function is a tool for the agent to get the weather in a given city.
-    The input is a city name, and the output is a string describing the weather in that city.
-    Example: get_weather("New York") -> "It's 25 degrees in New York"""
-    return f"It's 25 degrees in {city}"
+def get_failed_jobs(status="FAILED"):
+    """Return failed jobs as JSON"""
+
+    error_df = spark.read.table("job_error_details")
+
+    return [
+        row.asDict()
+        for row in error_df.limit(20).collect()
+    ]
 
 # COMMAND ----------
 
@@ -21,11 +24,27 @@ def get_weather(city:str)->str:
 
 agent = create_agent(
     model=ChatDatabricks(endpoint="databricks-gpt-oss-20b", max_tokens=1000),
-    tools=[get_weather],
-    system_prompt="You are a helpful assistant",
-)
+    tools=[get_failed_jobs],
+    system_prompt="""
+    You are a Databricks Incident Analysis Assistant.
 
-result = agent.invoke({"messages": [("user", "what's the weather today in chennai?")]})
+    Always use the get_failed_jobs tool whenever a user asks:
+    - failed jobs
+    - error details
+    - job failures
+    - error_df
+    - job error table
+    - github details
+
+    Do not make up information.
+    Only answer from the tool output.
+    always provide github details, job_id, job_name, task_key, error_message, error_trace while reponding with other details and avoid '>' from the git url
+    error details should be displayed properly and avoid using this hexa values and other things, convert it into image and produce
+    when users are asking questions out of error_df, kindly mention "I am an assistant who could help with the failed job details, if you have any questions related to failed job, you can ask."
+    """
+    )
+
+result = agent.invoke({"messages": [("user", "can you provide me the details about the failed jobs")]})
 print(result["messages"][-1].content)
 agent
 
